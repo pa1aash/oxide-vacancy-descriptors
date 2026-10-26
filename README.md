@@ -28,6 +28,8 @@ make all                 # env, test, specs-check, numbers, tables, figures
 make help                # the list below
 ```
 
+To re-derive the results only: `make specs-check numbers tables figures` (after `make env`; no GPU is needed).
+
 | Target | What it does | Runtime (laptop with an 8-core Apple-silicon CPU; no GPU) |
 |---|---|---|
 | `make env` | create or update the conda environment, `pip install -e . --no-deps` | about 10 min (measured; depends on download speed) |
@@ -67,6 +69,7 @@ Every formation energy, descriptor and structure comes from the oxygen-vacancy d
 Y. Kumagai, N. Tsunoda, A. Takahashi and F. Oba, "Insights into oxygen vacancies from high-throughput first-principles
 calculations", Phys. Rev. Materials 5, 123803 (2021)
 (https://github.com/kumagai-group/oxygen_vacancies_db, CC BY 4.0). Cite that article when you use any derived file.
+Database article: doi:10.1103/PhysRevMaterials.5.123803.
 The database itself is not redistributed; `data/MANIFEST.sha256` pins every downloaded file by URL and sha256.
 
 ## Checkpoints and processed inputs
@@ -74,8 +77,8 @@ The database itself is not redistributed; `data/MANIFEST.sha256` pins every down
 The trained checkpoints are not on GitHub. Their sha256 lists are in `checkpoints/` (stages without a cluster
 manifest) and `results/nrp/artefacts/<stage>.sha256`; each result record also names its checkpoint and hash. The
 processed inputs (`data/processed`: universe table and graph store) are not in this repository either. Both are
-available from the corresponding author, Palaash Gang (palaash.gang@indusschoolpune.com); check every file you
-receive against its listed sha256.
+available on request: open an issue on GitHub Issues of this repository, or write to the corresponding author, Palaash
+Gang (palaash.gang@indusschoolpune.com). Check every file you receive against its listed sha256.
 
 ## Rerunning training
 
