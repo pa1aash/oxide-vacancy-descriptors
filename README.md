@@ -1,5 +1,7 @@
 # oxide-vacancy-descriptors
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23677077.svg)](https://doi.org/10.5281/zenodo.23677077)
+
 An open framework for predicting the formation energy of the neutral oxygen vacancy in non-magnetic oxides with
 graph networks, and for measuring what explicit electronic descriptors of the host add to the crystal structure as
 the number of training oxides grows. All models share a MEGNet backbone and read the pristine supercell with the
@@ -99,6 +101,8 @@ Code: MIT (`LICENSE`). Data, splits and results: CC BY 4.0 (`LICENSES/CC-BY-4.0.
 ## How to cite
 
 See `CITATION.cff` (also used by the "Cite this repository" button on GitHub), and cite the data source above.
+
+Archived on Zenodo: doi:10.5281/zenodo.23677077 (concept DOI; resolves to the latest version).
 
 ## Authors
 
