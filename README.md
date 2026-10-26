@@ -99,5 +99,6 @@ See `CITATION.cff` (also used by the "Cite this repository" button on GitHub), a
 
 ## Authors
 
-Palaash Gang (Indus International School, Pune, India; ORCID 0009-0006-7448-9488; corresponding author) and
-Aiden Lee (Westview High School, San Diego, CA, USA; ORCID 0009-0007-3281-8420).
+Palaash Gang (Indus International School, Pune, India; ORCID 0009-0006-7448-9488; corresponding author),
+Aiden Lee (Westview High School, San Diego, CA, USA; ORCID 0009-0007-3281-8420) and
+Qi Wu (University of California, San Diego, Department of Chemistry & Biochemistry; ORCID 0009-0006-1874-6478).
