@@ -1,0 +1,273 @@
+# Central configuration.
+data:
+  raw_dir: data/raw
+  processed_dir: data/processed
+  charge_state: 0
+  filters:               # applied in order to Kumagai's neutral ML subset (charge0.csv); decisions
+    - D1_defect_type_flags        # drop vacancy split / unknown / not same config from init (15 entries)
+    - D2_Sr2Zr7O16_label_mismatch # drop host Sr2Zr7O16: ML site labels do not match release targets
+    - D3_cell_metadata_shell_check # Ba4Nb2WO12, Sr2SnO4: keep only if site maps to O with matching shell
+  universe: universe_v1
+  exclude_never_tested_from_per_host: true   # the 79 hosts never in an outer test set (splits/meta.json)
+split:
+  group_key: formula
+  n_outer_resamples: 10
+  test_fraction: 0.2
+  seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+  kiyohara_protocol:     # GNNs: train on train hosts, early-stop on val hosts, test on test hosts
+    train: train
+    early_stopping: val
+    test: test
+budgets:
+  hosts: [25, 50, 100, 200, 400, 654]   # training budgets in HOSTS (learning-curve x-axis); nested subsets
+  max: 654              # Floor(0.8 x 818 hosts), results/g0.json
+curve:                   # Kumagai-style RF learning curve: nominal sizes of K21 Fig. 5(a), 700 capped at the 654-host pool
+  sizes: [22, 70, 220, 654]
+  n_resamples: 100       # grouped random resamples per size, as in K21
+  n_test_hosts: 48       # K21 text; the released script uses 50
+graph:                   # Section 3
+  structure: pristine_release_supercell
+  vacancy_atom: kept_with_binary_flag
+  type: radius
+  cutoff_A: 5.0
+  periodic: true
+  node_features: [learned_element_embedding, vacancy_flag]
+  edge_features: gaussian_distance_expansion
+  gaussian_centres: megnet_default
+  gaussian_width: megnet_default
+models:
+  rf:
+    enabled: true
+  physics_floor:
+    enabled: true
+    n_parameters: 2
+    descriptors: [formation_energy, band_gap]   # oxide stability, PBEsol(+U) band gap
+    intercept: true
+  S:
+    enabled: true
+    backbone: megnet
+    backbone_package: matgl
+    backbone_version: 4.1.0
+    backbone_backend: pyg
+    readout: [vacancy_node_embedding, global_node_pooling, global_state]   # concatenated, then MLP -> E_f
+    pooling: tuned       # tuning.search_space.pooling
+  D:
+    enabled: true
+    backbone: megnet
+    # class strings exactly as in docs/descriptor_taxonomy.csv; fixed on physical grounds before any baseline
+    descriptor_classes: [host-electronic DFT, site-electronic DFT]
+    standardisation: training_set
+    injection_variants:
+      D-state:           # host-electronic -> initial global state; site-electronic -> vacancy node's initial features
+        host-electronic DFT: initial_global_state
+        site-electronic DFT: vacancy_node_initial_features
+      D-late:            # all descriptors concatenated to the readout vector before the MLP
+        host-electronic DFT: readout_vector
+        site-electronic DFT: readout_vector
+    injection_selection: lowest_mean_val_mae_over_anchors   # the other variant: tuning runs only, SI
+  P1:
+    enabled: true
+    backbone: megnet
+    architecture: S_backbone_and_readout
+    head: multi_output_all_D_descriptors_standardised
+    loss: mse
+    loss_weights: equal
+    report: [test_r2_per_descriptor, test_mae_per_descriptor]
+  P:
+    enabled: true
+    backbone: megnet
+    composition: [P1, D]                 # P = P1 then D; D receives P1's predicted descriptors at inference
+    D_trained_on: true_descriptors
+    true_descriptor_swap_in: D           # evaluated against D on identical test hosts
+  injection_mode: D-state
+tuning:
+  sampler: optuna_tpe
+  optuna_trials_per_model_per_anchor: 30
+  models: [S, D-state, D-late, P1]
+  anchors: [50, 200, 654]
+  anchor_resample: 0     # resample 0's nested training sets
+  objective: inner_val_mae   # test hosts never seen
+  budget_to_anchor: {25: 50, 50: 50, 100: 200, 200: 200, 400: 654, 654: 654}
+  search_space:          # identical for all tuned models
+    learning_rate: {dist: log_uniform, low: 1.0e-4, high: 3.0e-3}
+    weight_decay: {dist: log_uniform, low: 1.0e-6, high: 1.0e-3}
+    hidden_width: {dist: categorical, choices: [64, 128]}
+    megnet_blocks: {dist: categorical, choices: [2, 3, 4]}
+    dropout: {dist: uniform, low: 0.0, high: 0.3}
+    batch_size: {dist: categorical, choices: [16, 32, 64]}
+    readout_mlp_width: {dist: categorical, choices: [64, 128]}
+    pooling: {dist: categorical, choices: [set2set, mean]}
+  # clarifications (2026-10-07): seed-0 trials on one validation set per anchor, TPESampler(seed=0) with
+  # Optuna defaults, no pruning, non-finite validation MAE scored 1000.0
+  trial_seed: 0
+  nonfinite_objective: 1000.0
+  optuna: {sampler_seed: 0, pruner: none}
+training:
+  loss: l1_standardised_target   # target standardised with training-set mean and sd
+  optimiser: adamw
+  scheduler:
+    name: reduce_lr_on_plateau
+    factor: 0.5
+    patience: 15
+  max_epochs: 200        # Rule and evidence in (2026-10-06, 2026-10-07)
+  early_stopping:
+    monitor: val_mae
+    restore_best: true
+    patience: 30           # Max(30, round(0.15 x max_epochs))
+    min_delta: 0.0       # clarification (2026-10-06, 2026-10-07)
+  validation:            # dftgnn.split.val_split on the training hosts
+    frac: 0.1
+    min_hosts: 3
+    seed_from: [resample, budget, seed]
+    # clarification: int.from_bytes(sha256(f"val|{r}|{B}|{seed}".encode()).digest()[:4], "big")
+    seed_rule: sha256_val_r_B_seed_first4_bigendian
+  seeds: [0, 1, 2]       # for every (resample, budget)
+  checkpoints: [S, D, P1]   # every run; S checkpoints feed the probe
+secondary_metric:
+  within_host: true      # ICC_host = 0.930 >= 0.70, results/variance_decomposition.json
+stats:
+  bootstrap_n: 10000
+  cluster_bootstrap_n: 2000   # test-host cluster bootstrap for held-out metrics
+  delta_eV: 0.05
+  ci: 0.95
+analysis:                # Sections 7-8
+  primary_metric: site_mae
+  secondary_metrics: [within_host_residual_mae, host_mean_mae]
+  advantage: mae_S_minus_mae_D
+  prediction: seed_ensemble_mean
+  bootstrap:
+    type: paired_hierarchical
+    levels: [resample, test_host]
+    draws: 2000
+  n_star:
+    upper_quantile: 0.95       # one-sided 95% upper bound on A
+    alpha: 0.05
+    must_hold_for_all_larger_budgets: true
+    if_none: lower_bound_gt_max_budget
+  c2_ceiling_budget: 654
+  c2_ceiling_ci: 0.95          # two-sided
+  display_ci: 0.95             # two-sided, figures
+  repeat_for_secondary: within_host_residual_mae
+  multiplicity_correction: none
+  staging_contrasts: [D_minus_P, P_minus_S]
+  staging_null_ci: 0.95
+  equivalence_margin_eV: 0.05    # TOST
+  equivalence_tost_ci: 0.90
+sensitivity:
+  exclude_high_moment:   # Drop |defect moment| > threshold
+    threshold_muB: 0.5
+    models: [S, D]
+    budget: 654
+  epoch_cap:
+    models: [S, D]
+    budget: 654
+    resamples: [0, 1, 2]
+    seeds: [0, 1, 2]
+    max_epochs: 600
+    patience: 30
+    cap_insensitive_if_abs_delta_A_le_eV: 0.02
+  kiyohara_split:
+    models: [S, D, P]
+  cgcnn_check:           # SI
+    models: [S, D]
+    budgets: [50, 200, 654]
+    resamples: [0]
+    seeds: [0, 1, 2]
+  unselected_injection_variant: tuning_runs_only   # SI
+  unselected_variant_sweep:
+    variant: D-late
+    budgets: [200, 400, 654]
+    resamples: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    seeds: [0, 1, 2]
+diagnostics:
+  hparam_cross:           # item 1: budget vs hyperparameter anchor for the within-host collapse of S
+    model: S
+    cells: [[200, 200], [200, 654], [654, 200], [654, 654]]   # (budget, anchor)
+    resamples: [0, 1, 2]
+    seeds: [0, 1, 2]
+  descriptor_ablation:    # item 3: what D's descriptors contribute at the largest budget
+    budget: 654
+    resamples: [0, 1, 2]
+    seeds: [0, 1, 2]
+    ablations: [none, desc_host, desc_site]
+    permutation_repeats: 5
+    permutation_seed: 0
+v2:                       # backbone design screen, logged 2026-10-08; validation hosts only
+  variants:
+    pre_registered: {}
+    init: {init: kaiming}
+    local: {local_readout: true}
+    init_local: {init: kaiming, local_readout: true}
+  screen_anchors: [50, 200, 654]
+  screen_seeds: [0, 1, 2]
+  selection: lowest_mean_val_mae_over_anchors
+  selected: init            # screen result, 2026-10-08
+mlip:
+  model: mace-mp-0
+  size: medium
+  dtype: float64
+  version: TBD           # recorded with the model hash at run time
+  relax:
+    cell: unit
+    relax_cell: true
+    relax_positions: true
+    optimiser: FIRE
+    fmax_eV_per_A: 0.01
+    max_steps: 500
+  tiling: release_supercell_matrix
+  geometry_components: [isotropic_strain, deviatoric_strain, internal_rmsd]
+  conditions: [dft, mlip, mlip_rescaled_to_dft_volume]
+  retrain: false
+  models: [S, D, P]
+  budgets: [654, N_star]
+  budget_if_no_n_star: 200
+  D_descriptors: dft     # D keeps its DFT descriptors under MLIP geometry
+  stratify:
+    by: cation_d_electron_count
+    oxidation_states: pymatgen_oxi_state_guess
+    bins: [d0, d10, other]
+  null_rule:
+    median_internal_rmsd_A_below: 0.01
+    delta_mae_ci_includes_zero: true
+probe:
+  enabled: true
+  checkpoints: {model: S, seeds: [0], resamples: all, budgets: all}
+  features: readout_input_vector
+  regressor: ridge
+  alpha_cv: {folds: 5, grouped: true, fit_on: training_sites}
+  targets: D_descriptors
+  report: [test_r2_per_descriptor, class_mean_r2]
+  controls: [shuffled_labels, random_init_encoder]
+  pass_rule:
+    trend: spearman_rho_gt_0_bootstrap_ci_excludes_0
+    beats_controls_min_budget: 200
+    otherwise: move_to_si
+robustness:
+  loco:
+    grouping: s02_definition_ii_a_distinct_group_set   # clarification; 131 families in universe v1
+    k: 5
+    training_size: max_feasible
+    models: [S, D]
+    seeds: [0, 1, 2]
+    uncertainty: host_bootstrap
+  ensemble_uncertainty:
+    spread: seed_sd_per_site
+    calibration: spearman_sd_vs_abs_error
+  variance_tables: [seed, resample]
+screening:
+  candidates: [ZnO, TiO2, SnO2, In2O3, CeO2, MgO, Al2O3, ZrO2, SrTiO3, BaTiO3, Ga2O3, WO3, MoO3, Nb2O5, LaAlO3]
+  all_polymorphs: true
+  min_resamples_tested: 1
+  model: S
+  budget: 654
+  aggregate: mean_over_resamples_tested
+gates:
+  G1: learning_curve_rf_b0_s_d_with_error_bands_before_staging_mlip_probe
+  C0_kiyohara_max_mae_eV: 0.35
+  G2_tag: results-v1
+  cost_gate: s07_runtime_memory_author_approves_pod_before_s09
+deviations_log: docs/deviations.md
+paths:
+  results_dir: results
+  figures_dir: figures
+  handoff_dir: handoff

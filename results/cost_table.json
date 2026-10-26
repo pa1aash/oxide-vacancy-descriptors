@@ -1,0 +1,834 @@
+{
+  "config": {
+    "analysis": {
+      "advantage": "mae_S_minus_mae_D",
+      "bootstrap": {
+        "draws": 2000,
+        "levels": [
+          "resample",
+          "test_host"
+        ],
+        "type": "paired_hierarchical"
+      },
+      "c2_ceiling_budget": 654,
+      "c2_ceiling_ci": 0.95,
+      "display_ci": 0.95,
+      "multiplicity_correction": "none",
+      "n_star": {
+        "alpha": 0.05,
+        "if_none": "lower_bound_gt_max_budget",
+        "must_hold_for_all_larger_budgets": true,
+        "upper_quantile": 0.95
+      },
+      "prediction": "seed_ensemble_mean",
+      "primary_metric": "site_mae",
+      "repeat_for_secondary": "within_host_residual_mae",
+      "secondary_metrics": [
+        "within_host_residual_mae",
+        "host_mean_mae"
+      ],
+      "staging_contrasts": [
+        "D_minus_P",
+        "P_minus_S"
+      ],
+      "staging_null_ci": 0.95
+    },
+    "budgets": {
+      "hosts": [
+        25,
+        50,
+        100,
+        200,
+        400,
+        654
+      ],
+      "max": 654
+    },
+    "curve": {
+      "n_resamples": 100,
+      "n_test_hosts": 48,
+      "sizes": [
+        22,
+        70,
+        220,
+        654
+      ]
+    },
+    "data": {
+      "charge_state": 0,
+      "exclude_never_tested_from_per_host": true,
+      "filters": [
+        "D1_defect_type_flags",
+        "D2_Sr2Zr7O16_label_mismatch",
+        "D3_cell_metadata_shell_check"
+      ],
+      "processed_dir": "data/processed",
+      "raw_dir": "data/raw",
+      "universe": "universe_v1"
+    },
+    "deviations_log": "docs/deviations.md",
+    "gates": {
+      "C0_kiyohara_max_mae_eV": 0.35,
+      "G1": "learning_curve_rf_b0_s_d_with_error_bands_before_staging_mlip_probe",
+      "G2_tag": "results-v1",
+      "cost_gate": "s07_runtime_memory_author_approves_pod_before_s09"
+    },
+    "graph": {
+      "cutoff_A": 5.0,
+      "edge_features": "gaussian_distance_expansion",
+      "gaussian_centres": "megnet_default",
+      "gaussian_width": "megnet_default",
+      "node_features": [
+        "learned_element_embedding",
+        "vacancy_flag"
+      ],
+      "periodic": true,
+      "structure": "pristine_release_supercell",
+      "type": "radius",
+      "vacancy_atom": "kept_with_binary_flag"
+    },
+    "mlip": {
+      "D_descriptors": "dft",
+      "budget_if_no_n_star": 200,
+      "budgets": [
+        654,
+        "N_star"
+      ],
+      "conditions": [
+        "dft",
+        "mlip",
+        "mlip_rescaled_to_dft_volume"
+      ],
+      "dtype": "float64",
+      "geometry_components": [
+        "isotropic_strain",
+        "deviatoric_strain",
+        "internal_rmsd"
+      ],
+      "model": "mace-mp-0",
+      "models": [
+        "S",
+        "D",
+        "P"
+      ],
+      "null_rule": {
+        "delta_mae_ci_includes_zero": true,
+        "median_internal_rmsd_A_below": 0.01
+      },
+      "relax": {
+        "cell": "unit",
+        "fmax_eV_per_A": 0.01,
+        "max_steps": 500,
+        "optimiser": "FIRE",
+        "relax_cell": true,
+        "relax_positions": true
+      },
+      "retrain": false,
+      "size": "medium",
+      "stratify": {
+        "bins": [
+          "d0",
+          "d10",
+          "other"
+        ],
+        "by": "cation_d_electron_count",
+        "oxidation_states": "pymatgen_oxi_state_guess"
+      },
+      "tiling": "release_supercell_matrix",
+      "version": "TBD"
+    },
+    "models": {
+      "D": {
+        "backbone": "megnet",
+        "descriptor_classes": [
+          "host-electronic DFT",
+          "site-electronic DFT"
+        ],
+        "enabled": true,
+        "injection_selection": "lowest_mean_val_mae_over_anchors",
+        "injection_variants": {
+          "D-late": {
+            "host-electronic DFT": "readout_vector",
+            "site-electronic DFT": "readout_vector"
+          },
+          "D-state": {
+            "host-electronic DFT": "initial_global_state",
+            "site-electronic DFT": "vacancy_node_initial_features"
+          }
+        },
+        "standardisation": "training_set"
+      },
+      "P": {
+        "D_trained_on": "true_descriptors",
+        "backbone": "megnet",
+        "composition": [
+          "P1",
+          "D"
+        ],
+        "enabled": true,
+        "true_descriptor_swap_in": "D"
+      },
+      "P1": {
+        "architecture": "S_backbone_and_readout",
+        "backbone": "megnet",
+        "enabled": true,
+        "head": "multi_output_all_D_descriptors_standardised",
+        "loss": "mse",
+        "loss_weights": "equal",
+        "report": [
+          "test_r2_per_descriptor",
+          "test_mae_per_descriptor"
+        ]
+      },
+      "S": {
+        "backbone": "megnet",
+        "backbone_backend": "pyg",
+        "backbone_package": "matgl",
+        "backbone_version": "4.1.0",
+        "enabled": true,
+        "pooling": "tuned",
+        "readout": [
+          "vacancy_node_embedding",
+          "global_node_pooling",
+          "global_state"
+        ]
+      },
+      "injection_mode": "TBD",
+      "physics_floor": {
+        "descriptors": [
+          "formation_energy",
+          "band_gap"
+        ],
+        "enabled": true,
+        "intercept": true,
+        "n_parameters": 2
+      },
+      "rf": {
+        "enabled": true
+      }
+    },
+    "paths": {
+      "figures_dir": "figures",
+      "handoff_dir": "handoff",
+      "results_dir": "results"
+    },
+    "probe": {
+      "alpha_cv": {
+        "fit_on": "training_sites",
+        "folds": 5,
+        "grouped": true
+      },
+      "checkpoints": {
+        "budgets": "all",
+        "model": "S",
+        "resamples": "all",
+        "seeds": [
+          0
+        ]
+      },
+      "controls": [
+        "shuffled_labels",
+        "random_init_encoder"
+      ],
+      "enabled": true,
+      "features": "readout_input_vector",
+      "pass_rule": {
+        "beats_controls_min_budget": 200,
+        "otherwise": "move_to_si",
+        "trend": "spearman_rho_gt_0_bootstrap_ci_excludes_0"
+      },
+      "regressor": "ridge",
+      "report": [
+        "test_r2_per_descriptor",
+        "class_mean_r2"
+      ],
+      "targets": "D_descriptors"
+    },
+    "robustness": {
+      "ensemble_uncertainty": {
+        "calibration": "spearman_sd_vs_abs_error",
+        "spread": "seed_sd_per_site"
+      },
+      "loco": {
+        "grouping": "s02_definition_ii_a_distinct_group_set",
+        "k": 5,
+        "models": [
+          "S",
+          "D"
+        ],
+        "seeds": [
+          0,
+          1,
+          2
+        ],
+        "training_size": "max_feasible",
+        "uncertainty": "host_bootstrap"
+      },
+      "variance_tables": [
+        "seed",
+        "resample"
+      ]
+    },
+    "screening": {
+      "aggregate": "mean_over_resamples_tested",
+      "all_polymorphs": true,
+      "budget": 654,
+      "candidates": [
+        "ZnO",
+        "TiO2",
+        "SnO2",
+        "In2O3",
+        "CeO2",
+        "MgO",
+        "Al2O3",
+        "ZrO2",
+        "SrTiO3",
+        "BaTiO3",
+        "Ga2O3",
+        "WO3",
+        "MoO3",
+        "Nb2O5",
+        "LaAlO3"
+      ],
+      "min_resamples_tested": 1,
+      "model": "S"
+    },
+    "secondary_metric": {
+      "within_host": true
+    },
+    "sensitivity": {
+      "cgcnn_check": {
+        "budgets": [
+          50,
+          200,
+          654
+        ],
+        "models": [
+          "S",
+          "D"
+        ],
+        "resamples": [
+          0
+        ],
+        "seeds": [
+          0,
+          1,
+          2
+        ]
+      },
+      "exclude_high_moment": {
+        "budget": 654,
+        "models": [
+          "S",
+          "D"
+        ],
+        "threshold_muB": 0.5
+      },
+      "kiyohara_split": {
+        "models": [
+          "S",
+          "D",
+          "P"
+        ]
+      },
+      "unselected_injection_variant": "tuning_runs_only"
+    },
+    "split": {
+      "group_key": "formula",
+      "kiyohara_protocol": {
+        "early_stopping": "val",
+        "test": "test",
+        "train": "train"
+      },
+      "n_outer_resamples": 10,
+      "seeds": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "test_fraction": 0.2
+    },
+    "stats": {
+      "bootstrap_n": 10000,
+      "ci": 0.95,
+      "cluster_bootstrap_n": 2000,
+      "delta_eV": 0.05
+    },
+    "training": {
+      "checkpoints": [
+        "S",
+        "D",
+        "P1"
+      ],
+      "early_stopping": {
+        "min_delta": 0.0,
+        "monitor": "val_mae",
+        "patience": 30,
+        "restore_best": true
+      },
+      "loss": "l1_standardised_target",
+      "max_epochs": 200,
+      "optimiser": "adamw",
+      "scheduler": {
+        "factor": 0.5,
+        "name": "reduce_lr_on_plateau",
+        "patience": 15
+      },
+      "seeds": [
+        0,
+        1,
+        2
+      ],
+      "validation": {
+        "frac": 0.1,
+        "min_hosts": 3,
+        "seed_from": [
+          "resample",
+          "budget",
+          "seed"
+        ],
+        "seed_rule": "sha256_val_r_B_seed_first4_bigendian"
+      }
+    },
+    "tuning": {
+      "anchor_resample": 0,
+      "anchors": [
+        50,
+        200,
+        654
+      ],
+      "budget_to_anchor": {
+        "100": 200,
+        "200": 200,
+        "25": 50,
+        "400": 654,
+        "50": 50,
+        "654": 654
+      },
+      "models": [
+        "S",
+        "D-state",
+        "D-late",
+        "P1"
+      ],
+      "objective": "inner_val_mae",
+      "optuna_trials_per_model_per_anchor": 30,
+      "sampler": "optuna_tpe",
+      "search_space": {
+        "batch_size": {
+          "choices": [
+            16,
+            32,
+            64
+          ],
+          "dist": "categorical",
+          "high": null,
+          "low": null
+        },
+        "dropout": {
+          "choices": null,
+          "dist": "uniform",
+          "high": 0.3,
+          "low": 0.0
+        },
+        "hidden_width": {
+          "choices": [
+            64,
+            128
+          ],
+          "dist": "categorical",
+          "high": null,
+          "low": null
+        },
+        "learning_rate": {
+          "choices": null,
+          "dist": "log_uniform",
+          "high": 0.003,
+          "low": 0.0001
+        },
+        "megnet_blocks": {
+          "choices": [
+            2,
+            3,
+            4
+          ],
+          "dist": "categorical",
+          "high": null,
+          "low": null
+        },
+        "pooling": {
+          "choices": [
+            "set2set",
+            "mean"
+          ],
+          "dist": "categorical",
+          "high": null,
+          "low": null
+        },
+        "readout_mlp_width": {
+          "choices": [
+            64,
+            128
+          ],
+          "dist": "categorical",
+          "high": null,
+          "low": null
+        },
+        "weight_decay": {
+          "choices": null,
+          "dist": "log_uniform",
+          "high": 0.001,
+          "low": 1e-06
+        }
+      }
+    }
+  },
+  "git_dirty": false,
+  "git_sha": "9b0b3e017e8ee1fa1583a9c0f4d000df54dad182",
+  "hostname": "Palaashs-MacBook-Air.local",
+  "name": "cost_table",
+  "package_versions": {
+    "ase": "3.29.0",
+    "mace-torch": "0.3.16",
+    "numpy": "2.4.6",
+    "optuna": "5.0.0",
+    "pandas": "3.0.6",
+    "pydantic": "2.13.5",
+    "pymatgen": "2026.9.24",
+    "scikit-learn": "1.9.1",
+    "scipy": "1.17.1",
+    "torch": "2.13.0",
+    "torch_geometric": "2.8.0.post1"
+  },
+  "payload": {
+    "card": "NVIDIA L40S (measured)",
+    "central_speedup_used": 1.2348653100647846,
+    "definition": "S07 step 6: GPU-hour and cost table for the remaining pre-registered workload (runs on the Mac).\n\nInputs (all committed results): ``gpu_benchmark.json`` (seconds per epoch for every (hidden, batch,\nblocks) cell at budget 654, and the concurrency scaling), ``gpu_epoch_scaling.json`` (measured seconds\nper epoch, training plus validation pass, at every budget and on the Kiyohara split; the ratio to the\n654-host training epoch scales a cell's time to any budget), ``pilot_epochs.json`` (e_conv per budget, max_epochs, patience)\nand ``configs/config.yaml`` (the workload). Prices are fetched headlessly from RunPod's public GraphQL\nendpoint; a failed fetch is logged and the price left blank, never estimated.\n\nModel of one run's GPU time (central)\n    s_epoch(cell, B) = s_epoch_654(cell) x epoch_total(B) / train_epoch(654)\n    epochs           = e_conv(B) + patience               (expected early-stopping point)\n    GPU-hours        = runs x epochs x s_epoch / speedup / 3600\nwith ``cell`` the mean over the 18 benchmarked (hidden, batch, blocks) cells for tuning trials (the\nsearch space is categorical in all three) and the model's fixed cell otherwise, and ``speedup`` the\nmeasured aggregate-throughput ratio of N concurrent workers to one (CUDA MPS, 4 workers).\nUpper bound: the slowest cell, ``max_epochs`` epochs (early stopping never fires) and no concurrency gain.\ne_conv(B) for budgets other than the three piloted ones is interpolated linearly in log B and clamped\nto the piloted range.\n",
+    "e_conv": {
+      "25": 30,
+      "200": 70,
+      "654": 133
+    },
+    "epoch_scale_vs_654_train_epoch": {
+      "100": 0.2128140371609449,
+      "200": 0.36144804112569384,
+      "25": 0.04908626659239755,
+      "400": 0.6648007175245512,
+      "50": 0.07853839118449438,
+      "654": 1.073492367745602,
+      "kiyohara": 1.1303394046150435
+    },
+    "epochs_per_h_mps": {
+      "1": 2334.0526122635924,
+      "2": 2671.458415596683,
+      "4": 2882.2406027504016,
+      "8": 2935.408707324603
+    },
+    "epochs_per_h_no_mps": {
+      "1": 2311.41847147845,
+      "2": 1977.7347105794527,
+      "4": 1875.5111429977208,
+      "8": 1854.4539753212177
+    },
+    "excluded": [
+      "MLIP relaxations (MACE-MP-0, S09+)",
+      "latent probe (CPU)",
+      "figures and statistics (CPU)"
+    ],
+    "max_epochs": 200,
+    "patience": 30,
+    "pilot": false,
+    "price_fetch_notes": [],
+    "price_source": "https://api.runpod.io/graphql",
+    "prices": {
+      "A100 80GB PCIe": {
+        "community": 1.19,
+        "memory_gb": 80,
+        "secure": 1.59
+      },
+      "A100 80GB SXM": {
+        "community": 1.39,
+        "memory_gb": 80,
+        "secure": 1.59
+      },
+      "A40": {
+        "community": 0.35,
+        "memory_gb": 48,
+        "secure": 0.49
+      },
+      "H100 NVL": {
+        "community": 2.59,
+        "memory_gb": 94,
+        "secure": 3.19
+      },
+      "H100 PCIe": {
+        "community": 1.99,
+        "memory_gb": 80,
+        "secure": 2.89
+      },
+      "H100 SXM": {
+        "community": 2.69,
+        "memory_gb": 80,
+        "secure": 3.49
+      },
+      "L40S (current)": {
+        "community": 0.79,
+        "memory_gb": 48,
+        "secure": 1.09
+      },
+      "RTX 4090": {
+        "community": 0.34,
+        "memory_gb": 24,
+        "secure": 0.74
+      },
+      "RTX 6000 Ada": {
+        "community": 0.74,
+        "memory_gb": 48,
+        "secure": 0.84
+      }
+    },
+    "rate_basis": "RunPod Secure Cloud GPU price from the public GraphQL endpoint + 0.04 USD/h disks (observed)",
+    "rate_usd_per_h": 1.1300000000000001,
+    "s_per_epoch_cells": {
+      "h64_b32_k3": 1.55036196205765,
+      "mean": 2.4372945593980453,
+      "slowest": 4.55628314986825
+    },
+    "saturation_note": "**Saturation.** nvidia-smi utilisation was 93% with one worker and 99-100% with 2-8 workers; without MPS the aggregate rate fell to 0.86x (2 workers) and 0.80x (8 workers) of one worker's, because the processes time-slice the device. With CUDA MPS it rose to 1.23x at 4 workers and 1.26x at 8, so the card is saturated at about 4 workers. Utilisation did not stay low, so the data do not support moving to several cheaper cards to gain throughput; running one pod with MPS and about 4 workers is the efficient setting on this card.",
+    "speedup_mps": {
+      "1": 1.0,
+      "2": 1.14455792536993,
+      "4": 1.2348653100647846,
+      "8": 1.257644618592298
+    },
+    "speedup_no_mps": {
+      "1": 1.0,
+      "2": 0.8556368026748684,
+      "4": 0.8114113329716923,
+      "8": 0.8023012700660194
+    },
+    "stages": [
+      {
+        "central_gpu_h": 14.269007661933331,
+        "central_usd": 16.123978657984665,
+        "detail": [
+          {
+            "budget": 50,
+            "central_gpu_h": 0.3789226802945483,
+            "expected_epochs": 73.33333333333334,
+            "runs": 120,
+            "train_sites": 93,
+            "upper_gpu_h": 2.3856209891444853
+          },
+          {
+            "budget": 200,
+            "central_gpu_h": 2.3780065646579622,
+            "expected_epochs": 100.0,
+            "runs": 120,
+            "train_sites": 385,
+            "upper_gpu_h": 10.979064128892567
+          },
+          {
+            "budget": 654,
+            "central_gpu_h": 11.51207841698082,
+            "expected_epochs": 163.0,
+            "runs": 120,
+            "train_sites": 1248,
+            "upper_gpu_h": 32.60756791114305
+          }
+        ],
+        "note": "S, D-state, D-late, P1 x anchors x trials; one run per trial",
+        "runs": 360,
+        "stage": "tune",
+        "upper_gpu_h": 45.9722530291801,
+        "upper_usd": 51.94864592297352
+      },
+      {
+        "central_gpu_h": 16.24656190482496,
+        "central_usd": 18.358614952452207,
+        "detail": [
+          {
+            "budget": 25,
+            "central_gpu_h": 0.14532478505757362,
+            "expected_epochs": 60.0,
+            "runs": 90,
+            "train_sites": 51,
+            "upper_gpu_h": 1.1182546468244088
+          },
+          {
+            "budget": 50,
+            "central_gpu_h": 0.2841920102209112,
+            "expected_epochs": 73.33333333333334,
+            "runs": 90,
+            "train_sites": 93,
+            "upper_gpu_h": 1.789215741858364
+          },
+          {
+            "budget": 100,
+            "central_gpu_h": 0.9100825786704629,
+            "expected_epochs": 86.66666666666669,
+            "runs": 90,
+            "train_sites": 196,
+            "upper_gpu_h": 4.848205057859245
+          },
+          {
+            "budget": 200,
+            "central_gpu_h": 1.7835049234934721,
+            "expected_epochs": 100.0,
+            "runs": 90,
+            "train_sites": 385,
+            "upper_gpu_h": 8.234298096669425
+          },
+          {
+            "budget": 400,
+            "central_gpu_h": 4.489398794646924,
+            "expected_epochs": 136.85739492356072,
+            "runs": 90,
+            "train_sites": 755,
+            "upper_gpu_h": 15.145101536387173
+          },
+          {
+            "budget": 654,
+            "central_gpu_h": 8.634058812735617,
+            "expected_epochs": 163.0,
+            "runs": 90,
+            "train_sites": 1248,
+            "upper_gpu_h": 24.455675933357288
+          }
+        ],
+        "note": "S, D, P1 x resamples x budgets x seeds (P is evaluation only)",
+        "runs": 540,
+        "stage": "sweep",
+        "upper_gpu_h": 55.590751012955906,
+        "upper_usd": 62.81754864464018
+      },
+      {
+        "central_gpu_h": 0.8688769518269734,
+        "central_usd": 0.9818309555644801,
+        "detail": [
+          {
+            "budget": "kiyohara",
+            "central_gpu_h": 0.8688769518269734,
+            "expected_epochs": 155.7833261232957,
+            "runs": 9,
+            "train_sites": 1193,
+            "upper_gpu_h": 2.575073191439816
+          }
+        ],
+        "note": "S, D, P1 x seeds",
+        "runs": 9,
+        "stage": "kiyohara",
+        "upper_gpu_h": 2.575073191439816,
+        "upper_usd": 2.9098327063269926
+      },
+      {
+        "central_gpu_h": 2.878019604245205,
+        "central_usd": 3.252162152797082,
+        "detail": [
+          {
+            "budget": 654,
+            "central_gpu_h": 2.878019604245205,
+            "expected_epochs": 163.0,
+            "runs": 30,
+            "train_sites": 1248,
+            "upper_gpu_h": 8.151891977785763
+          }
+        ],
+        "note": "S, D x folds x seeds; training size taken as the 654-host maximum",
+        "runs": 30,
+        "stage": "loco",
+        "upper_gpu_h": 8.151891977785763,
+        "upper_usd": 9.211637934897913
+      },
+      {
+        "central_gpu_h": 5.75603920849041,
+        "central_usd": 6.504324305594164,
+        "detail": [
+          {
+            "budget": 654,
+            "central_gpu_h": 5.75603920849041,
+            "expected_epochs": 163.0,
+            "runs": 60,
+            "train_sites": 1248,
+            "upper_gpu_h": 16.303783955571525
+          }
+        ],
+        "note": "high-moment exclusion, S and D at the maximum budget",
+        "runs": 60,
+        "stage": "sensitivity",
+        "upper_gpu_h": 16.303783955571525,
+        "upper_usd": 18.423275869795827
+      },
+      {
+        "central_gpu_h": 0.7134503830966665,
+        "central_usd": 0.8061989328992333,
+        "detail": [
+          {
+            "budget": 50,
+            "central_gpu_h": 0.01894613401472741,
+            "expected_epochs": 73.33333333333334,
+            "runs": 6,
+            "train_sites": 93,
+            "upper_gpu_h": 0.11928104945722427
+          },
+          {
+            "budget": 200,
+            "central_gpu_h": 0.11890032823289813,
+            "expected_epochs": 100.0,
+            "runs": 6,
+            "train_sites": 385,
+            "upper_gpu_h": 0.5489532064446284
+          },
+          {
+            "budget": 654,
+            "central_gpu_h": 0.575603920849041,
+            "expected_epochs": 163.0,
+            "runs": 6,
+            "train_sites": 1248,
+            "upper_gpu_h": 1.6303783955571527
+          }
+        ],
+        "note": "S, D x budgets x seeds, resample 0; timed with the MEGNet-S cell (a CGCNN backbone was not benchmarked)",
+        "runs": 18,
+        "stage": "cgcnn",
+        "upper_gpu_h": 2.2986126514590053,
+        "upper_usd": 2.597432296148676
+      }
+    ],
+    "total_central_gpu_h": 40.731955714417545,
+    "total_central_usd": 46.02710995729183,
+    "total_upper_gpu_h": 130.8923658183921,
+    "total_upper_usd": 147.9083733747831,
+    "train_sites": {
+      "100": 196,
+      "200": 385,
+      "25": 51,
+      "400": 755,
+      "50": 93,
+      "654": 1248,
+      "kiyohara": 1193
+    },
+    "tune_plus_sweep_central_gpu_h": 30.515569566758295,
+    "tune_plus_sweep_upper_gpu_h": 101.56300404213601
+  },
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+  ],
+  "timestamp_utc": "2026-10-06T20:17:17.625747+00:00"
+}

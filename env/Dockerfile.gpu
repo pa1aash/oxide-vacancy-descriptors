@@ -1,0 +1,18 @@
+# GPU image for the training pod (Linux, CUDA). No git credentials are baked in.
+# Base image tag is a placeholder to be set to the CUDA/PyTorch runtime image used on the pod.
+# Digest of pytorch/pytorch:latest fetched 2026-10-26 from
+# https://registry-1.docker.io/v2/pytorch/pytorch/manifests/latest (Docker-Content-Digest header).
+# Its image config reports PYTORCH_VERSION=2.2.1 (created 2024-02-22, amd64); the run records used the torch
+# version in env/lock-gpu.txt, so the lock files, not this base image, fix the package versions.
+ARG BASE_IMAGE=pytorch/pytorch:latest@sha256:11691e035a3651d25a87116b4f6adc113a27a29d8f5a6a583f8569e0ee5ff897
+FROM ${BASE_IMAGE}
+
+RUN apt-get update && apt-get install -y --no-install-recommends git build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# torch is provided by the base image; package list mirrors env/environment-gpu.yml
+RUN pip install --no-cache-dir numpy scipy pandas scikit-learn pymatgen ase matplotlib seaborn \
+    optuna pyyaml pydantic jupyter pytest ruff colorspacious tqdm torch_geometric==2.8.0.post1 mace-torch \
+    matgl==4.1.0
+
+WORKDIR /workspace
